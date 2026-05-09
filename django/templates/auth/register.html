@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}Create account — educoder{% endblock %}
+{% block main_classes_anon %}{% endblock %}
+{% block content %}
+<div class="auth-shell wide">
+  <div class="logo"><span class="dot"></span><span>educoder</span></div>
+  <span class="caps">Register</span>
+  <h1>Create your account.</h1>
+  <p class="lead">Pick a role to begin.</p>
+
+  <form method="post" class="auth-card" autocomplete="on">
+    {% csrf_token %}
+
+    <div class="auth-row">
+      <label>Role</label>
+      <div class="role-radio" id="roleGroup" style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        {% for value, label in form.role.field.choices %}
+          {% if value != 'admin' %}
+            <label class="role-card {% if forloop.first %}selected{% endif %}">
+              <input type="radio" name="role" value="{{ value }}" {% if forloop.first %}checked{% endif %}>
+              <div class="caps">{{ label }}</div>
+              <div style="margin-top:4px;color:var(--text);font-size:12px">
+                {% if value == 'student' %}I'm here to learn{% else %}I teach a class{% endif %}
+              </div>
+            </label>
+          {% endif %}
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="auth-row">
+      <label for="id_username">Username</label>
+      <input type="text" name="username" id="id_username" required class="field mono" placeholder="your.username"
+             autocapitalize="none" autocomplete="username">
+      {% if form.username.errors %}<p class="auth-error">{{ form.username.errors|join:", " }}</p>{% endif %}
+    </div>
+
+    <div class="auth-row">
+      <label for="id_email">Email</label>
+      <input type="email" name="email" id="id_email" class="field mono" placeholder="you@school.edu" autocomplete="email">
+      {% if form.email.errors %}<p class="auth-error">{{ form.email.errors|join:", " }}</p>{% endif %}
+    </div>
+
+    <div class="auth-row" style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <div>
+        <label for="id_password1">Password</label>
+        <input type="password" name="password1" id="id_password1" required class="field mono"
+               autocomplete="new-password" placeholder="••••••••">
+      </div>
+      <div>
+        <label for="id_password2">Confirm</label>
+        <input type="password" name="password2" id="id_password2" required class="field mono"
+               autocomplete="new-password" placeholder="••••••••">
+      </div>
+    </div>
+    {% if form.password1.errors %}<p class="auth-error">{{ form.password1.errors|join:", " }}</p>{% endif %}
+    {% if form.password2.errors %}<p class="auth-error">{{ form.password2.errors|join:", " }}</p>{% endif %}
+
+    <button class="btn-fullw" style="margin-top:8px">Create account →</button>
+  </form>
+
+  <p class="auth-foot">
+    Already have one? <a href="{% url 'auth:login' %}">Sign in</a>
+  </p>
+</div>
+
+<script>
+  document.querySelectorAll('#roleGroup .role-card').forEach((card) => {
+    card.addEventListener('click', (e) => {
+      if (e.target.tagName === 'INPUT') return;
+      document.querySelectorAll('#roleGroup .role-card').forEach((c) => c.classList.remove('selected'));
+      card.classList.add('selected');
+      const inp = card.querySelector('input');
+      if (inp) inp.checked = true;
+    });
+  });
+</script>
+{% endblock %}

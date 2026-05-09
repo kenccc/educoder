@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block title %}Submission #{{ submission.pk }} · {{ submission.assignment.title }}{% endblock %}
+{% block topbar %}
+<div class="topbar">
+  <div class="crumbs">
+    <a href="{% url 'classrooms:list' %}">Classrooms</a>
+    <span class="sep">/</span>
+    <a href="{% url 'classrooms:detail' submission.assignment.classroom.pk %}">{{ submission.assignment.classroom.name }}</a>
+    <span class="sep">/</span>
+    <a href="{% url 'assignments:detail' submission.assignment.pk %}">{{ submission.assignment.title }}</a>
+    <span class="sep">/</span>
+    <span class="text mono">#{{ submission.pk }}</span>
+  </div>
+  <div>
+    {% if submission.status == 'success' %}
+      <span class="chip chip-pass">all pass · {{ submission.score }} pts</span>
+    {% elif submission.status == 'failed' or submission.status == 'error' or submission.status == 'timeout' %}
+      <span class="chip chip-fail">{{ submission.status }} · {{ submission.passed_count }}/{{ submission.total_count }}</span>
+    {% else %}
+      <span class="chip chip-pending">{{ submission.status }}</span>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+{% block content %}
+
+<div class="page-head">
+  <h1 class="page-title mono">Submission #{{ submission.pk }}</h1>
+  <div class="page-sub mono">
+    {{ submission.created_at|date:"Y-m-d H:i:s" }} · {{ submission.student.username }} ·
+    {{ submission.passed_count }}/{{ submission.total_count }} passed ·
+    {{ submission.duration_ms|default:"—" }}ms ·
+    exit {{ submission.exit_code|default:"—" }}
+  </div>
+</div>
+
+<div class="grid gap-6" style="grid-template-columns: 1.6fr 1fr;">
+  <div>
+    <div class="section-title">
+      <span>Code</span>
+      <span class="dim">{{ submission.assignment.language }} · {{ submission.code|length }} bytes</span>
+    </div>
+    <div class="panel" style="padding:0">
+      <pre class="codeblock" style="margin:0; border:0; max-height:600px; font-size:12px; border-radius:6px">{{ submission.code }}</pre>
+    </div>
+  </div>
+
+  <div>
+    <div class="section-title">
+      <span>Test runs</span>
+      <span class="dim">{{ runs|length }}</span>
+    </div>
+    <div class="table-wrap" style="margin-bottom:16px">
+      <table class="table">
+        <thead>
+          <tr>
+            <th class="rank">#</th>
+            <th>Case</th>
+            <th class="right">Result</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in runs %}
+            <tr>
+              <td class="rank num dim">{{ forloop.counter }}</td>
+              <td>
+                {{ r.name }}
+                {% if r.is_hidden %}<span class="badge" style="margin-left:6px">hidden</span>{% endif %}
+              </td>
+              <td class="right">
+                <span class="chip {% if r.passed %}chip-pass{% else %}chip-fail{% endif %}">{{ r.passed|yesno:"pass,fail" }}</span>
+              </td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="3" class="dim" style="text-align:center;padding:24px">No per-case runs.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% for r in runs %}
+      {% if not r.passed and not r.is_hidden %}
+        <div class="panel" style="margin-bottom:12px">
+          <div class="panel-head">
+            <span class="panel-title">{{ r.name }}</span>
+            <span class="chip chip-fail">fail</span>
+          </div>
+          <div class="panel-body">
+            <div class="grid gap-2" style="grid-template-columns: 1fr 1fr">
+              <div>
+                <div class="caps" style="margin-bottom:4px">expected</div>
+                <pre class="codeblock">{{ r.expected_stdout|truncatechars:300 }}</pre>
+              </div>
+              <div>
+                <div class="caps" style="margin-bottom:4px">actual</div>
+                <pre class="codeblock">{{ r.actual_stdout|truncatechars:300 }}</pre>
+              </div>
+            </div>
+            {% if r.error %}<pre class="codeblock" style="margin-top:8px; color:var(--bad)">{{ r.error|truncatechars:400 }}</pre>{% endif %}
+          </div>
+        </div>
+      {% endif %}
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

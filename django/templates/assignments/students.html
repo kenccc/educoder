@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}Students · {{ assignment.title }}{% endblock %}
+{% block topbar %}
+<div class="topbar">
+  <div class="crumbs">
+    <a href="{% url 'classrooms:detail' assignment.classroom.pk %}">{{ assignment.classroom.name }}</a>
+    <span class="sep">/</span>
+    <a href="{% url 'assignments:detail' assignment.pk %}">{{ assignment.title }}</a>
+    <span class="sep">/</span>
+    <span class="text">Students</span>
+  </div>
+  <div class="flex items-center gap-2">
+    <a href="{% url 'assignments:analytics' assignment.pk %}" class="btn btn-sm">Analytics</a>
+  </div>
+</div>
+{% endblock %}
+{% block content %}
+
+<div class="page-head">
+  <h1 class="page-title">Per-student progress</h1>
+  <div class="page-sub">{{ assignment.title }}</div>
+</div>
+
+<div class="grid gap-4" style="grid-template-columns: repeat(4, minmax(0,1fr)); margin-bottom: 24px">
+  <div class="card"><div class="muted caps text-xs">Roster</div><div class="num text-2xl">{{ stats.total }}</div></div>
+  <div class="card"><div class="muted caps text-xs">Done</div><div class="num text-2xl" style="color:var(--good)">{{ stats.done }}</div></div>
+  <div class="card"><div class="muted caps text-xs">Working</div><div class="num text-2xl" style="color:var(--warn)">{{ stats.working }}</div></div>
+  <div class="card"><div class="muted caps text-xs">Not started</div><div class="num text-2xl dim">{{ stats.not_started }}</div></div>
+</div>
+
+<div class="table-wrap">
+  <table class="table">
+    <thead>
+      <tr>
+        <th style="width:24px"></th>
+        <th>Student</th>
+        <th>State</th>
+        <th class="right">Best score</th>
+        <th class="right">Runs</th>
+        <th class="right">Hints</th>
+        <th class="right">Last activity</th>
+        <th class="right" style="width:140px"></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in rows %}
+        <tr>
+          <td>
+            {% if r.state == 'done' %}<span class="check-mark">✓</span>
+            {% elif r.state == 'working' %}<span class="check-mark check-partial">●</span>
+            {% else %}<span class="dim">·</span>{% endif %}
+          </td>
+          <td>
+            <a href="{% url 'classrooms:student_detail' assignment.classroom.pk r.student.pk %}" style="color:var(--text)">
+              {{ r.student.display_name|default:r.student.username }}
+            </a>
+          </td>
+          <td>
+            {% if r.state == 'done' %}<span class="chip chip-pass">done</span>
+            {% elif r.state == 'working' %}<span class="chip chip-pending">working</span>
+            {% else %}<span class="chip">not started</span>{% endif %}
+          </td>
+          <td class="right num">{{ r.best_score }}</td>
+          <td class="right num dim">{{ r.runs }}</td>
+          <td class="right num dim">{{ r.hints_used }}</td>
+          <td class="right num dim">{% if r.last_activity %}{{ r.last_activity|timesince }}{% else %}—{% endif %}</td>
+          <td class="right">
+            {% if r.best_attempt %}
+              <a href="{% url 'assignments:attempt_timeline' r.best_attempt.pk %}" class="btn btn-sm">Timeline →</a>
+            {% endif %}
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="8" class="dim" style="text-align:center;padding:32px">No students enrolled.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<style>
+  .check-mark { color: var(--good); font-weight: 600; font-family: 'JetBrains Mono', monospace; }
+  .check-mark.check-partial { color: var(--warn); }
+</style>
+{% endblock %}

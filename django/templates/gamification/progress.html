@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}Progress — educoder{% endblock %}
+{% block topbar %}
+<div class="topbar">
+  <div class="crumbs">
+    <span class="text">Progress</span>
+  </div>
+</div>
+{% endblock %}
+{% block content %}
+
+<div class="page-head">
+  <h1 class="page-title">{{ request.user.display_name|default:request.user.username }}</h1>
+  <div class="page-sub">XP, streak, badges across all classrooms.</div>
+</div>
+
+<div class="grid gap-3" style="grid-template-columns: repeat(3, minmax(0, 1fr)); margin-bottom:32px">
+  <div class="kpi">
+    <div class="kpi-label">XP</div>
+    <div class="kpi-value">{{ progress.xp }}</div>
+    <div class="bar-track" style="margin-top:8px">
+      <div class="bar-fill" style="width: {{ progress_pct }}%"></div>
+    </div>
+    <div class="kpi-delta">{{ progress_pct }}% to level {{ progress.level|add:1 }}</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-label">Level</div>
+    <div class="kpi-value">{{ progress.level }}</div>
+    <div class="kpi-delta">current rank</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-label">Streak</div>
+    <div class="kpi-value">{{ progress.streak_days }}<span class="dim" style="font-size:14px">d</span></div>
+    <div class="kpi-delta">{% if progress.last_activity %}seen {{ progress.last_activity|date:"M j" }}{% else %}start today{% endif %}</div>
+  </div>
+</div>
+
+<div class="section-title">
+  <span>Badges</span>
+  <span class="dim">{{ badges|length }}</span>
+</div>
+<div class="table-wrap">
+  <table class="table">
+    <thead>
+      <tr>
+        <th style="width:36px"></th>
+        <th>Name</th>
+        <th>Description</th>
+        <th class="right">Awarded</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for b in badges %}
+        <tr>
+          <td style="font-size:14px; color:var(--accent)">{{ b.badge.icon|default:"◆" }}</td>
+          <td>{{ b.badge.name }}</td>
+          <td class="dim">{{ b.badge.description|default:"—" }}</td>
+          <td class="right num dim">{{ b.awarded_at|date:"Y-m-d H:i" }}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="4" class="dim" style="text-align:center;padding:48px">No badges yet — solve a task to earn your first.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

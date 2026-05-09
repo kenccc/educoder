@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% block title %}{{ assignment.title }} — educoder{% endblock %}
+{% block topbar %}
+<div class="topbar">
+  <div class="crumbs">
+    {% if assignment.classroom_id %}
+      <a href="{% url 'classrooms:list' %}">Classrooms</a>
+      <span class="sep">/</span>
+      <a href="{% url 'classrooms:detail' assignment.classroom.pk %}">{{ assignment.classroom.name }}</a>
+    {% else %}
+      <a href="{% url 'exercises:library' %}">Task library</a>
+      <span class="sep">/</span>
+      <span class="muted">Solo practice</span>
+    {% endif %}
+    <span class="sep">/</span>
+    <span class="text">{{ assignment.title }}</span>
+  </div>
+  <div class="flex items-center gap-2">
+    {% if is_owner %}
+      <a href="{% url 'assignments:students' assignment.pk %}" class="btn btn-sm">Students</a>
+      <a href="{% url 'assignments:analytics' assignment.pk %}" class="btn btn-sm">Analytics</a>
+    {% endif %}
+    <a href="{% url 'assignments:start' assignment.id %}" class="btn btn-primary btn-sm">{% if submissions %}Continue{% else %}Start task{% endif %}</a>
+  </div>
+</div>
+{% endblock %}
+{% block content %}
+
+<div class="page-head">
+  <h1 class="page-title">{{ assignment.title }}</h1>
+  <div class="page-sub flex items-center gap-3" style="margin-top:8px">
+    {% if assignment.level %}<span class="chip chip-{{ assignment.level }}">{{ assignment.level }}</span>{% endif %}
+    <span class="badge">{{ assignment.get_language_display }}</span>
+    {% if assignment.strict_mode %}<span class="badge badge-warn">strict</span>{% endif %}
+    <span class="dim">·</span>
+    <span class="mono">{{ assignment.max_points }} pts</span>
+    {% if assignment.time_limit_minutes %}<span class="mono dim">{{ assignment.time_limit_minutes }}m limit</span>{% endif %}
+    {% if assignment.due_at %}<span class="mono dim">due {{ assignment.due_at|date:"M j H:i" }}</span>{% endif %}
+  </div>
+</div>
+
+<div class="grid gap-6" style="grid-template-columns: 1.6fr 1fr;">
+  <div>
+    <div class="section-title">
+      <span>Prompt</span>
+    </div>
+    <div class="panel">
+      <div class="panel-body">
+        <article class="prose-warp">
+          {{ assignment.description|linebreaks }}
+        </article>
+
+        {% if visible_cases %}
+          <div class="divider"></div>
+          <span class="caps" style="display:block; margin-bottom:12px">Visible test cases</span>
+          {% for c in visible_cases %}
+            <div style="margin-bottom:18px">
+              <div class="mono" style="font-size:11px; color:var(--text-muted); margin-bottom:6px">{{ c.name }}</div>
+              <div class="grid gap-3" style="grid-template-columns: 1fr 1fr">
+                <div>
+                  <div class="caps" style="margin-bottom:4px">stdin</div>
+                  <pre class="codeblock">{{ c.stdin|default:"(none)" }}</pre>
+                </div>
+                <div>
+                  <div class="caps" style="margin-bottom:4px">expected</div>
+                  <pre class="codeblock">{{ c.expected_stdout }}</pre>
+                </div>
+              </div>
+            </div>
+          {% endfor %}
+          <p class="caps" style="margin-top:12px">Hidden cases run during grading.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="section-title">
+      <span>Your attempts</span>
+      <span class="dim">{{ submissions|length }}</span>
+    </div>
+    <div class="table-wrap" style="margin-bottom:16px">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>When</th>
+            <th class="right">Result</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in submissions %}
+            <tr class="clickable" onclick="window.location='{% url 'submissions:detail' s.pk %}'">
+              <td class="num dim">{{ s.created_at|date:"M j H:i:s" }}</td>
+              <td class="right">
+                {% if s.status == 'success' %}
+                  <span class="chip chip-pass">{{ s.passed_count }}/{{ s.total_count }}</span>
+                {% elif s.status == 'failed' or s.status == 'error' or s.status == 'timeout' %}
+                  <span class="chip chip-fail">{{ s.passed_count }}/{{ s.total_count }}</span>
+                {% else %}
+                  <span class="chip chip-pending">{{ s.status }}</span>
+                {% endif %}
+              </td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="2" class="dim" style="text-align:center;padding:32px">No attempts yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% if assignment.strict_mode %}
+      <div class="panel">
+        <div class="panel-body" style="font-size:12px; color:var(--text-muted); line-height:1.7">
+          <div class="caps" style="margin-bottom:8px; color:var(--warn)">Strict mode</div>
+          Fullscreen lock on start. Copy/paste, devtools, right-click blocked. Tab switches logged.
+        </div>
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+{% endblock %}

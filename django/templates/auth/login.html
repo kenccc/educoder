@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Sign in — educoder{% endblock %}
+{% block main_classes_anon %}{% endblock %}
+{% block content %}
+<div class="auth-shell">
+  <div class="logo"><span class="dot"></span><span>educoder</span></div>
+  <span class="caps">Sign in</span>
+  <h1>Welcome back.</h1>
+  <p class="lead">Resume work in the sandbox.</p>
+
+  <form method="post" class="auth-card" autocomplete="on">
+    {% csrf_token %}
+
+    <div class="auth-row">
+      <label for="id_username">Username</label>
+      <input type="text" name="username" id="id_username" required autofocus
+             autocapitalize="none" autocomplete="username"
+             class="field mono" placeholder="your.username">
+    </div>
+
+    <div class="auth-row">
+      <label for="id_password">Password</label>
+      <input type="password" name="password" id="id_password" required
+             autocomplete="current-password"
+             class="field mono" placeholder="••••••••">
+    </div>
+
+    {% if form.errors or form.non_field_errors %}
+      <p class="auth-error">ERR · invalid username or password</p>
+    {% endif %}
+
+    <button class="btn-fullw" style="margin-top:8px">Sign in →</button>
+  </form>
+
+  <p class="auth-foot">
+    No account? <a href="{% url 'auth:register' %}">Create one</a>
+  </p>
+</div>
+{% endblock %}

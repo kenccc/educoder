@@ -1,0 +1,29 @@
+{% load static %}
+<aside class="sidebar">
+  <a href="{% url 'classrooms:list' %}" class="sidebar-brand">
+    <span class="dot"></span>
+    <span>educoder</span>
+  </a>
+
+  <a href="{% url 'classrooms:list' %}"
+     class="sidebar-link {% if 'classrooms' in request.resolver_match.namespaces %}active{% endif %}">
+    Classrooms
+  </a>
+  <a href="{% url 'exercises:library' %}"
+     class="sidebar-link {% if 'exercises' in request.resolver_match.namespaces %}active{% endif %}">
+    Task library
+  </a>
+  <a href="{% url 'gamification:progress' %}"
+     class="sidebar-link {% if 'gamification' in request.resolver_match.namespaces %}active{% endif %}">
+    Progress
+  </a>
+
+  <div class="sidebar-foot">
+    <div style="color:var(--text-muted); font-size:12px; margin-bottom:2px">{{ request.user.display_name|default:request.user.username }}</div>
+    <div class="mono" style="font-size:10px; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.10em; margin-bottom:10px">{{ request.user.role }}</div>
+    <form method="post" action="{% url 'auth:logout' %}">
+      {% csrf_token %}
+      <button class="btn btn-sm" style="width:100%; justify-content:flex-start; border-color:transparent; color:var(--text-muted); height:26px; padding:0 8px">Sign out</button>
+    </form>
+  </div>
+</aside>

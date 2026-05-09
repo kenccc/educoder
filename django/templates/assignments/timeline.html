@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Timeline · {{ attempt.student.username }} · {{ assignment.title }}{% endblock %}
+{% block topbar %}
+<div class="topbar">
+  <div class="crumbs">
+    {% if assignment.classroom_id %}
+      <a href="{% url 'classrooms:detail' assignment.classroom.pk %}">{{ assignment.classroom.name }}</a>
+      <span class="sep">/</span>
+      <a href="{% url 'assignments:monitor' assignment.classroom.pk %}">Monitor</a>
+      <span class="sep">/</span>
+    {% endif %}
+    <span class="text">Timeline · {{ attempt.student.username }}</span>
+  </div>
+  <div class="muted">
+    started {{ attempt.started_at|date:"H:i:s" }} · {{ attempt.get_status_display }}
+  </div>
+</div>
+{% endblock %}
+{% block content %}
+
+<div class="page-head">
+  <h1 class="page-title">{{ attempt.student.username }} <span class="dim">→</span> {{ assignment.title }}</h1>
+  <div id="timeline-body"
+       hx-get="{% url 'assignments:attempt_timeline' attempt.pk %}"
+       hx-trigger="every 5s"
+       hx-swap="innerHTML">
+    {% include "assignments/timeline_body.html" %}
+  </div>
+</div>
+
+{% endblock %}

@@ -1,0 +1,231 @@
+{% extends "base.html" %}
+{% block title %}New task — {{ classroom.name }}{% endblock %}
+{% block topbar %}
+<div class="topbar">
+  <div class="crumbs">
+    <a href="{% url 'classrooms:list' %}">Classrooms</a>
+    <span class="sep">/</span>
+    <a href="{% url 'classrooms:detail' classroom.pk %}">{{ classroom.name }}</a>
+    <span class="sep">/</span>
+    <span class="text">New task</span>
+  </div>
+</div>
+{% endblock %}
+{% block content %}
+
+<div class="page-head">
+  <h1 class="page-title">New task</h1>
+  <div class="page-sub">Pick from the library, or write a custom task with your own test cases.</div>
+</div>
+
+<div x-data="{ tab: 'library' }">
+  <div class="flex items-center gap-1" style="border-bottom:1px solid var(--border); margin-bottom:24px">
+    <button class="btn btn-sm btn-ghost" :class="tab==='library' && 'btn-primary'" @click="tab='library'" style="border-radius:5px 5px 0 0">Library</button>
+    <button class="btn btn-sm btn-ghost" :class="tab==='custom' && 'btn-primary'" @click="tab='custom'" style="border-radius:5px 5px 0 0">Custom</button>
+  </div>
+
+  <!-- LIBRARY -->
+  <section x-show="tab === 'library'">
+    <form method="get" class="flex flex-wrap items-end gap-3" style="margin-bottom:16px">
+      <div class="form-row" style="margin:0; flex:1; min-width:220px">
+        <label>Search</label>
+        <input name="q" value="{{ q }}" class="field" placeholder="Title or slug…">
+      </div>
+      <div class="form-row" style="margin:0">
+        <label>Language</label>
+        <select name="language" class="field" onchange="this.form.submit()" style="width:160px">
+          <option value="">All</option>
+          {% for v, l in languages %}<option value="{{ v }}" {% if v == selected_language %}selected{% endif %}>{{ l }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="form-row" style="margin:0">
+        <label>Level</label>
+        <select name="level" class="field" onchange="this.form.submit()" style="width:160px">
+          <option value="">All</option>
+          {% for v, l in levels %}<option value="{{ v }}" {% if v == selected_level %}selected{% endif %}>{{ l }}</option>{% endfor %}
+        </select>
+      </div>
+      <button class="btn btn-sm">Apply</button>
+      {% if q or selected_language or selected_level %}
+        <a href="{% url 'assignments:new' classroom.id %}" class="btn btn-sm btn-ghost">Reset</a>
+      {% endif %}
+    </form>
+
+    <div class="section-title">
+      <span>Exercises</span>
+      <span class="dim">{{ total }}</span>
+    </div>
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Title</th>
+            <th>Lang</th>
+            <th>Level</th>
+            <th>Prompt</th>
+            <th class="right" style="width:80px"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for ex in exercises %}
+            <tr x-data="{open:false}">
+              <td>{{ ex.title }}</td>
+              <td class="muted">{{ ex.get_language_display }}</td>
+              <td><span class="chip chip-{{ ex.level }}">{{ ex.level }}</span></td>
+              <td class="dim">{{ ex.prompt_md|truncatechars:80 }}</td>
+              <td class="right">
+                <button class="btn btn-sm" @click="open=!open" :class="open && 'btn-primary'" x-text="open ? 'Close' : 'Assign'"></button>
+              </td>
+            </tr>
+            <tr x-show="open" x-cloak>
+              <td colspan="5" style="background:var(--bg); padding:16px">
+                <form method="post" action="{% url 'assignments:create_from_exercise' classroom.id %}" class="grid gap-3" style="grid-template-columns: 2fr 1fr 1fr auto">
+                  {% csrf_token %}
+                  <input type="hidden" name="exercise_id" value="{{ ex.id }}">
+                  <div class="form-row" style="margin:0">
+                    <label>Title (optional)</label>
+                    <input name="title" class="field" placeholder="{{ ex.title }}">
+                  </div>
+                  <div class="form-row" style="margin:0">
+                    <label>Time limit (min)</label>
+                    <input type="number" name="time_limit_minutes" min="1" class="field mono" placeholder="—">
+                  </div>
+                  <div class="form-row" style="margin:0">
+                    <label>Due at</label>
+                    <input type="datetime-local" name="due_at" class="field mono">
+                  </div>
+                  <div class="form-row" style="margin:0; align-self:end">
+                    <label class="flex items-center gap-2" style="font-size:11px; text-transform:none; letter-spacing:0; color:var(--text-muted); margin-bottom:6px">
+                      <input type="checkbox" name="strict_mode" checked> strict
+                    </label>
+                    <button class="btn btn-primary btn-sm">Assign</button>
+                  </div>
+                </form>
+              </td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="5" class="dim" style="text-align:center;padding:48px">No exercises match.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% if page_obj.paginator.num_pages > 1 %}
+    <div class="flex items-center justify-between" style="margin-top:16px">
+      <div class="dim">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</div>
+      <div class="flex items-center gap-1">
+        {% if page_obj.has_previous %}
+          <a class="btn btn-sm" href="?{{ qs_no_page }}{% if qs_no_page %}&{% endif %}page=1">« First</a>
+          <a class="btn btn-sm" href="?{{ qs_no_page }}{% if qs_no_page %}&{% endif %}page={{ page_obj.previous_page_number }}">‹ Prev</a>
+        {% endif %}
+        {% if page_obj.has_next %}
+          <a class="btn btn-sm" href="?{{ qs_no_page }}{% if qs_no_page %}&{% endif %}page={{ page_obj.next_page_number }}">Next ›</a>
+          <a class="btn btn-sm" href="?{{ qs_no_page }}{% if qs_no_page %}&{% endif %}page={{ page_obj.paginator.num_pages }}">Last »</a>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+  </section>
+
+  <!-- CUSTOM -->
+  <section x-show="tab === 'custom'" x-cloak>
+    <form method="post" action="{% url 'assignments:create_custom' classroom.id %}" class="panel" x-data="customCases()">
+      <div class="panel-head"><span class="panel-title">Custom task</span></div>
+      <div class="panel-body">
+        {% csrf_token %}
+        <div class="grid gap-3" style="grid-template-columns: 2fr 1fr 1fr 1fr 1fr">
+          <div class="form-row" style="margin:0; grid-column: 1 / -1">
+            <label>Title</label>
+            <input name="title" required class="field" placeholder="Sum two numbers">
+          </div>
+          <div class="form-row" style="margin:0">
+            <label>Language</label>
+            <select name="language" class="field">
+              {% for v, l in languages %}<option value="{{ v }}">{{ l }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="form-row" style="margin:0">
+            <label>Level</label>
+            <select name="level" class="field">
+              <option value="">—</option>
+              {% for v, l in levels %}<option value="{{ v }}">{{ l }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="form-row" style="margin:0">
+            <label>Time limit (min)</label>
+            <input type="number" name="time_limit_minutes" min="1" class="field mono" placeholder="—">
+          </div>
+          <div class="form-row" style="margin:0">
+            <label>Due at</label>
+            <input type="datetime-local" name="due_at" class="field mono">
+          </div>
+          <div class="form-row" style="margin:0; align-self:end">
+            <label class="flex items-center gap-2" style="font-size:11px; text-transform:none; letter-spacing:0; color:var(--text-muted); margin-bottom:6px">
+              <input type="checkbox" name="strict_mode" checked> strict
+            </label>
+          </div>
+
+          <div class="form-row" style="margin:0; grid-column: 1 / -1">
+            <label>Prompt</label>
+            <textarea name="description" rows="5" class="field" required placeholder="Write the problem statement..."></textarea>
+          </div>
+          <div class="form-row" style="margin:0; grid-column: 1 / -1">
+            <label>Starter code</label>
+            <textarea name="starter_code" rows="6" class="field mono" placeholder="# write a function..."></textarea>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="flex items-center justify-between" style="margin-bottom:8px">
+          <span class="caps">Test cases</span>
+          <button type="button" class="btn btn-sm" @click="add()">Add case</button>
+        </div>
+        <div class="table-wrap">
+          <table class="table">
+            <thead>
+              <tr>
+                <th class="rank">#</th>
+                <th>Name</th>
+                <th>stdin</th>
+                <th>expected stdout</th>
+                <th class="right">Hidden</th>
+                <th class="right" style="width:60px"></th>
+              </tr>
+            </thead>
+            <tbody>
+              <template x-for="(c, i) in cases" :key="i">
+                <tr>
+                  <td class="rank num dim" x-text="i+1"></td>
+                  <td><input class="field" placeholder="Case name" x-model="c.name" style="height:24px"></td>
+                  <td><textarea class="field mono" rows="1" x-model="c.stdin" style="min-height:24px; padding:4px 6px; font-size:11px"></textarea></td>
+                  <td><textarea class="field mono" rows="1" x-model="c.expected_stdout" style="min-height:24px; padding:4px 6px; font-size:11px"></textarea></td>
+                  <td class="right"><input type="checkbox" x-model="c.is_hidden"></td>
+                  <td class="right"><button type="button" class="btn btn-sm btn-danger" @click="cases.splice(i,1)">×</button></td>
+                </tr>
+              </template>
+              <tr x-show="cases.length === 0"><td colspan="6" class="dim" style="text-align:center;padding:24px">Add at least one case.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <input type="hidden" name="test_cases_json" :value="JSON.stringify(cases)">
+
+        <div class="flex justify-end" style="margin-top:16px">
+          <button class="btn btn-primary">Create task</button>
+        </div>
+      </div>
+    </form>
+  </section>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+<script>
+  function customCases() {
+    return {
+      cases: [{ name: 'Case 1', stdin: '', expected_stdout: '', is_hidden: false }],
+      add() { this.cases.push({ name: 'Case ' + (this.cases.length+1), stdin: '', expected_stdout: '', is_hidden: false }) }
+    }
+  }
+</script>
+
+{% endblock %}

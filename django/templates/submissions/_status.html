@@ -1,0 +1,88 @@
+{# HTMX status fragment. Polls itself until terminal. #}
+{% with runs=submission.test_runs.all %}
+<div class="panel"
+     data-submission-id="{{ submission.pk }}"
+     data-passed="{{ submission.passed_count }}"
+     data-total="{{ submission.total_count }}"
+     data-runs="[{% for r in runs %}{&quot;name&quot;:&quot;{{ r.name|escapejs }}&quot;,&quot;passed&quot;:{{ r.passed|yesno:'true,false' }},&quot;is_hidden&quot;:{{ r.is_hidden|yesno:'true,false' }},&quot;error&quot;:&quot;{{ r.error|escapejs|truncatewords:30 }}&quot;}{% if not forloop.last %},{% endif %}{% endfor %}]"
+     {% if submission.status == 'pending' or submission.status == 'running' %}
+       hx-get="{% url 'submissions:status' submission.pk %}"
+       hx-trigger="load delay:250ms"
+       hx-swap="outerHTML"
+     {% endif %}>
+  <div class="panel-head">
+    <span class="panel-title">submission #{{ submission.pk }}</span>
+    {% if submission.status == 'success' %}
+      <span class="chip chip-pass">all pass</span>
+    {% elif submission.status == 'failed' or submission.status == 'error' or submission.status == 'timeout' %}
+      <span class="chip chip-fail">{{ submission.status }}</span>
+    {% else %}
+      <span class="chip chip-pending">{{ submission.status }}</span>
+    {% endif %}
+  </div>
+  <div class="panel-body">
+    {% if submission.total_count %}
+      <div class="flex items-baseline gap-2 mb-2">
+        <span class="num text" style="font-size:24px">{{ submission.passed_count }}</span>
+        <span class="dim num">/ {{ submission.total_count }} cases</span>
+        {% if submission.score is not None %}<span class="num" style="color:var(--accent); margin-left:auto">{{ submission.score }} pts</span>{% endif %}
+        {% if submission.status == 'success' and submission.xp_earned %}
+          <span class="chip chip-pass" style="margin-left:8px">+{{ submission.xp_earned }} XP</span>
+        {% endif %}
+      </div>
+    {% endif %}
+
+    {% if runs %}
+      <div class="space-y-2 mb-2">
+        {% for r in runs %}
+          <details {% if not r.passed %}open{% endif %} class="card" style="padding:0;background:var(--bg)">
+            <summary class="flex items-center justify-between" style="padding:8px 10px;cursor:pointer">
+              <span>
+                <span class="caps">{{ r.name }}</span>
+                {% if r.is_hidden %}<span class="dim mono" style="font-size:11px">hidden</span>{% endif %}
+              </span>
+              <span class="chip {% if r.passed %}chip-pass{% else %}chip-fail{% endif %}">{{ r.passed|yesno:"pass,fail" }}</span>
+            </summary>
+            {% if not r.passed %}
+              <div style="padding:8px 10px;border-top:1px solid var(--border);font-size:12px">
+                {% if r.test_case and r.test_case.stdin %}
+                  <div class="caps dim mb-1">input (stdin)</div>
+                  <pre class="codeblock" style="font-size:11px;max-height:120px">{{ r.test_case.stdin|truncatechars:600 }}</pre>
+                {% endif %}
+                <div class="grid gap-2" style="grid-template-columns: 1fr 1fr;margin-top:6px">
+                  <div>
+                    <div class="caps" style="color:var(--good)">expected</div>
+                    <pre class="codeblock" style="font-size:11px;max-height:140px">{{ r.expected_stdout|default:"(empty)"|truncatechars:600 }}</pre>
+                  </div>
+                  <div>
+                    <div class="caps" style="color:var(--bad)">received</div>
+                    <pre class="codeblock" style="font-size:11px;max-height:140px">{{ r.actual_stdout|default:"(empty)"|truncatechars:600 }}</pre>
+                  </div>
+                </div>
+                {% if r.error %}
+                  <div class="caps dim mt-2 mb-1">error</div>
+                  <pre class="codeblock" style="font-size:11px;color:var(--bad);max-height:140px">{{ r.error|truncatechars:600 }}</pre>
+                {% endif %}
+              </div>
+            {% endif %}
+          </details>
+        {% endfor %}
+      </div>
+    {% endif %}
+
+    {% if submission.stderr and not runs %}
+      <div class="caps dim mb-1">stderr</div>
+      <pre class="codeblock" style="color:var(--bad)">{{ submission.stderr|truncatechars:1200 }}</pre>
+    {% endif %}
+    {% if submission.stdout and submission.status != 'success' and not runs %}
+      <div class="caps dim mb-1 mt-2">stdout</div>
+      <pre class="codeblock">{{ submission.stdout|truncatechars:1200 }}</pre>
+    {% endif %}
+
+    <div class="mt-2 mono dim" style="font-size:11px">
+      {% if submission.exit_code is not None %}exit={{ submission.exit_code }}{% endif %}
+      · duration={{ submission.duration_ms|default:'—' }}ms
+    </div>
+  </div>
+</div>
+{% endwith %}

@@ -1,0 +1,7 @@
+from django.apps import AppConfig
+
+
+class ExercisesConfig(AppConfig):
+    name = "apps.exercises"
+    label = "exercises"
+    verbose_name = "Exercise Library"

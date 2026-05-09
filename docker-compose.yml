@@ -1,0 +1,121 @@
+# ==========================================================
+# educoder — fully containerized Django coding sandbox
+# ==========================================================
+# All services run in Docker. Student code NEVER executes
+# on the host or inside the Django container — it runs in
+# ephemeral sandbox containers spawned by execution-runner.
+# ==========================================================
+
+x-django-env: &django-env
+  env_file: .env
+  environment:
+    DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE:-educoder.settings.dev}
+    RUN_MIGRATIONS: ${RUN_MIGRATIONS:-0}
+
+services:
+
+  # -------- Data layer --------
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks: [backend]
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks: [backend]
+
+  # -------- Application layer (Django ASGI) --------
+  django-web:
+    build:
+      context: ./django
+      dockerfile: Dockerfile
+    <<: *django-env
+    command: >
+      uvicorn educoder.asgi:application
+      --host 0.0.0.0 --port 8090
+      --proxy-headers --forwarded-allow-ips='*'
+    volumes:
+      - ./django:/app
+      - django_static:/app/staticfiles
+      - django_media:/app/mediafiles
+    ports:
+      - "8090:8090"
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis:    { condition: service_healthy }
+    networks: [backend]
+
+  # -------- Async layer --------
+  celery-worker:
+    build:
+      context: ./django
+      dockerfile: Dockerfile
+    <<: *django-env
+    command: celery -A educoder worker -l info -Q default,execution,grading
+    volumes:
+      - ./django:/app
+    depends_on:
+      redis:    { condition: service_healthy }
+      postgres: { condition: service_healthy }
+    networks: [backend]
+
+  celery-beat:
+    build:
+      context: ./django
+      dockerfile: Dockerfile
+    <<: *django-env
+    command: celery -A educoder beat -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler
+    volumes:
+      - ./django:/app
+    depends_on:
+      redis:    { condition: service_healthy }
+      postgres: { condition: service_healthy }
+    networks: [backend]
+
+  # -------- Execution layer (sandbox spawner) --------
+  # Mounts /var/run/docker.sock so it can spawn SIBLING
+  # containers on the host docker daemon (Docker-out-of-Docker).
+  # This service is the ONLY component allowed to talk to docker.
+  execution-runner:
+    build:
+      context: ./execution-runner
+      dockerfile: Dockerfile
+    env_file: .env
+    environment:
+      RUNNER_HOST: 0.0.0.0
+      RUNNER_PORT: 8080
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks: [backend]
+    # NOTE: do NOT expose this port to the host — Django talks to
+    # it over the internal network only.
+
+volumes:
+  postgres_data:
+  redis_data:
+  django_static:
+  django_media:
+
+networks:
+  backend:
+    driver: bridge

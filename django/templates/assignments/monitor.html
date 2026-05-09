@@ -1,0 +1,221 @@
+{% extends "base.html" %}
+{% block title %}Live monitor · {{ classroom.name }}{% endblock %}
+{% block topbar %}
+<div class="topbar">
+  <div class="crumbs">
+    <a href="{% url 'classrooms:list' %}">Classrooms</a>
+    <span class="sep">/</span>
+    <a href="{% url 'classrooms:detail' classroom.pk %}">{{ classroom.name }}</a>
+    <span class="sep">/</span>
+    <span class="text">Monitor</span>
+  </div>
+  <div id="presenceCount" class="flex items-center gap-2"><span class="dot-status dot-idle"></span><span class="muted">connecting</span></div>
+</div>
+{% endblock %}
+{% block content %}
+
+<div class="page-head">
+  <h1 class="page-title">Live classroom</h1>
+  <div class="page-sub">Active students, status, progress — streaming.</div>
+</div>
+
+<div class="grid gap-4" style="grid-template-columns: repeat(5, minmax(0,1fr)); margin-bottom: 24px">
+  <div class="card"><div class="muted caps text-xs">Roster</div><div class="num text-2xl">{{ rows|length }}</div></div>
+  <div class="card"><div class="muted caps text-xs">Active</div><div class="num text-2xl">{{ active_attempts|length }}</div></div>
+  <div class="card"><div class="muted caps text-xs">Stuck</div><div class="num text-2xl" style="color:var(--bad)">{{ counts.stuck }}</div></div>
+  <div class="card"><div class="muted caps text-xs">Struggling</div><div class="num text-2xl" style="color:var(--warn)">{{ counts.struggling }}</div></div>
+  <div class="card"><div class="muted caps text-xs">Avg progress</div><div class="num text-2xl">{{ avg_progress|floatformat:0 }}%</div></div>
+</div>
+
+<div class="grid gap-6" style="grid-template-columns: 2fr 1fr;">
+  <div>
+    <div class="section-title">
+      <span>Students</span>
+      <span class="dim">live</span>
+    </div>
+    <div class="table-wrap">
+      <table class="table" id="studentsTable">
+        <thead>
+          <tr>
+            <th></th>
+            <th>Student</th>
+            <th>Status</th>
+            <th>Working on</th>
+            <th class="right">Progress</th>
+            <th class="right">Last run</th>
+            <th class="right">Stuck</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in rows %}
+            <tr data-user-id="{{ r.student.id }}">
+              <td><span class="dot-status status-dot-{{ r.kind }}"></span></td>
+              <td><a href="{% url 'classrooms:student_detail' classroom.pk r.student.pk %}" style="color:var(--text)">{{ r.student.username }}</a></td>
+              <td><span class="badge status-pill status-{{ r.kind }}">{{ r.kind }}</span></td>
+              <td class="dim">{% if r.status.active_assignment %}{{ r.status.active_assignment.title|truncatechars:36 }}{% else %}—{% endif %}</td>
+              <td class="right num">{% if r.status %}{{ r.status.progress|floatformat:0 }}%{% else %}—{% endif %}</td>
+              <td class="right num dim">
+                {% if r.status.last_run_at %}{{ r.status.last_run_at|timesince }}{% else %}—{% endif %}
+              </td>
+              <td class="right num">{% if r.status %}{{ r.status.stuck_score|floatformat:1 }}{% else %}0{% endif %}</td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="7" class="dim" style="text-align:center;padding:32px">No students enrolled yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div>
+    <div class="section-title">
+      <span>Needs attention</span>
+      <span class="dim">{{ queue|length }}</span>
+    </div>
+    <div class="card" style="padding:0">
+      {% for r in queue %}
+        <div class="flex items-center justify-between" style="padding:10px 14px;border-bottom:1px solid var(--border)">
+          <div>
+            <div><span class="dot-status status-dot-{{ r.kind }}"></span> {{ r.student.username }}</div>
+            <div class="dim" style="font-size:11px">stuck {{ r.status.stuck_score|floatformat:1 }} · {{ r.status.last_run_at|timesince|default:"—" }}</div>
+          </div>
+          {% if r.status.active_attempt_id %}
+            <a class="btn" href="{% url 'assignments:attempt_timeline' r.status.active_attempt_id %}">timeline →</a>
+          {% endif %}
+        </div>
+      {% empty %}
+        <div class="dim" style="padding:14px;text-align:center">All quiet.</div>
+      {% endfor %}
+    </div>
+
+    <div class="section-title" style="margin-top:24px">
+      <span>Live feed</span>
+      <span class="dim">tail -f</span>
+    </div>
+    <div class="table-wrap" style="max-height:55vh">
+      <table class="table">
+        <thead>
+          <tr>
+            <th style="width:24px"></th>
+            <th>Event</th>
+            <th class="right">Time</th>
+          </tr>
+        </thead>
+        <tbody id="liveFeed">
+          {% for evt in events|slice:":15" %}
+            <tr>
+              <td><span class="dot-status dot-idle"></span></td>
+              <td><span>{{ evt.user.username }}</span> <span class="dim">·</span> <span class="muted">{{ evt.type }}</span></td>
+              <td class="right num dim">{{ evt.created_at|date:"H:i:s" }}</td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="3" class="dim" style="text-align:center;padding:24px">Waiting for events…</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<style>
+  .status-pill { padding: 2px 8px; border-radius: 999px; border: 1px solid var(--border-h); font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .status-progressing, .status-dot-progressing { color: var(--good); border-color: rgba(126,201,143,0.4); }
+  .status-online,      .status-dot-online      { color: var(--accent); border-color: var(--accent-ring); }
+  .status-stuck,       .status-dot-stuck       { color: var(--bad); border-color: rgba(224,123,123,0.4); }
+  .status-struggling,  .status-dot-struggling  { color: var(--warn); border-color: rgba(228,184,118,0.4); }
+  .status-idle,        .status-dot-idle        { color: var(--text-dim); }
+  .status-offline,     .status-dot-offline     { color: var(--text-dim); opacity: 0.5; }
+  .status-dot-progressing { background: var(--good); }
+  .status-dot-online      { background: var(--accent); }
+  .status-dot-stuck       { background: var(--bad); }
+  .status-dot-struggling  { background: var(--warn); }
+  .status-dot-idle        { background: var(--text-dim); }
+  .status-dot-offline     { background: var(--text-dim); opacity: 0.5; }
+</style>
+
+<script>
+(() => {
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  const ws = new WebSocket(`${proto}://${location.host}/ws/classroom/{{ classroom.id }}/`);
+  const feed = document.getElementById('liveFeed');
+  const presence = document.getElementById('presenceCount');
+  const studentsTable = document.getElementById('studentsTable');
+  let online = 0;
+  let firstEvent = (feed && feed.querySelector('td[colspan]') !== null);
+
+  const setDot = (cls, label) => {
+    presence.innerHTML = `<span class="dot-status ${cls}"></span><span class="muted">${label}</span>`;
+  };
+
+  ws.addEventListener('open',  () => setDot('dot-good', 'live'));
+  ws.addEventListener('close', () => setDot('dot-bad', 'disconnected'));
+
+  function updateStudentRow(userId, status, progress) {
+    if (!userId) return;
+    const row = studentsTable && studentsTable.querySelector(`tr[data-user-id="${userId}"]`);
+    if (!row) return;
+    if (status) {
+      const pill = row.querySelector('.status-pill');
+      if (pill) {
+        pill.className = `badge status-pill status-${status}`;
+        pill.textContent = status;
+      }
+      const dot = row.querySelector('.dot-status');
+      if (dot) dot.className = `dot-status status-dot-${status}`;
+    }
+    if (typeof progress === 'number') {
+      const cells = row.querySelectorAll('td');
+      if (cells[4]) cells[4].textContent = `${Math.round(progress * 100)}%`;
+    }
+  }
+
+  function pushFeed(html, dotClass = 'dot-idle') {
+    if (!feed) return;
+    if (firstEvent) { feed.innerHTML = ''; firstEvent = false; }
+    const tr = document.createElement('tr');
+    const time = new Date().toLocaleTimeString();
+    tr.innerHTML = `<td><span class="dot-status ${dotClass}"></span></td><td>${html}</td><td class="right num dim">${time}</td>`;
+    feed.prepend(tr);
+    while (feed.children.length > 80) feed.lastChild.remove();
+  }
+
+  ws.addEventListener('message', (e) => {
+    const msg = JSON.parse(e.data);
+
+    if (msg.kind === 'presence') {
+      if (msg.online) online++; else online = Math.max(0, online - 1);
+      setDot('dot-good', `${online} online`);
+      return;
+    }
+
+    if (msg.kind === 'status_change') {
+      updateStudentRow(msg.user_id, msg.status, msg.progress);
+      const dotCls = msg.status === 'stuck' ? 'dot-bad' :
+                     msg.status === 'struggling' ? 'dot-warn' :
+                     msg.status === 'progressing' ? 'dot-good' : 'dot-idle';
+      pushFeed(`<span>${msg.student}</span> <span class="dim">→</span> <span class="muted">${msg.status}</span>`, dotCls);
+      return;
+    }
+
+    if (msg.kind === 'cheat') {
+      pushFeed(`<span>${msg.student}</span> <span class="dim">·</span> <span style="color:var(--warn)">${msg.event}</span>`, 'dot-warn');
+      return;
+    }
+    if (msg.kind === 'submission') {
+      const ok = msg.status === 'success';
+      pushFeed(`<span>${msg.student}</span> <span class="dim">·</span> submit <span class="num">${msg.passed}/${msg.total}</span>`, ok ? 'dot-good' : 'dot-bad');
+      return;
+    }
+    if (msg.kind === 'event') {
+      const t = msg.event_type;
+      if (['run_code', 'hint_open', 'attempt_start', 'attempt_end', 'testcase_pass', 'testcase_fail'].includes(t)) {
+        const dotCls = t === 'testcase_pass' ? 'dot-good' :
+                       t === 'testcase_fail' ? 'dot-bad' : 'dot-idle';
+        pushFeed(`<span>${msg.student}</span> <span class="dim">·</span> <span class="muted">${t}</span>`, dotCls);
+      }
+      return;
+    }
+  });
+})();
+</script>
+{% endblock %}

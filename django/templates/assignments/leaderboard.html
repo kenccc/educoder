@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Leaderboard · {{ classroom.name }}{% endblock %}
+{% block topbar %}
+<div class="topbar">
+  <div class="crumbs">
+    <a href="{% url 'classrooms:list' %}">Classrooms</a>
+    <span class="sep">/</span>
+    <a href="{% url 'classrooms:detail' classroom.pk %}">{{ classroom.name }}</a>
+    <span class="sep">/</span>
+    <span class="text">Leaderboard</span>
+  </div>
+</div>
+{% endblock %}
+{% block content %}
+
+<div class="page-head">
+  <h1 class="page-title">Leaderboard</h1>
+  <div class="page-sub">Total XP from correct submissions in this classroom.</div>
+</div>
+
+<div class="table-wrap">
+  <table class="table">
+    <thead>
+      <tr>
+        <th class="rank">#</th>
+        <th>Student</th>
+        <th class="right">Solved</th>
+        <th class="right">Attempts</th>
+        <th class="right">Pass rate</th>
+        <th class="right">XP</th>
+        <th class="right">Last solve</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in rows %}
+        <tr {% if forloop.counter == 1 %}class="selected"{% endif %}>
+          <td class="rank num dim">{{ forloop.counter }}</td>
+          <td>{{ r.student__display_name|default:r.student__username }}</td>
+          <td class="right num">{{ r.solved }}</td>
+          <td class="right num dim">{{ r.attempts }}</td>
+          <td class="right num dim">{% if r.attempts %}{% widthratio r.solved r.attempts 100 %}%{% else %}—{% endif %}</td>
+          <td class="right num" style="color:var(--accent)">{{ r.xp|default:0 }}</td>
+          <td class="right num dim">{{ r.last_solve|date:"M j H:i"|default:"—" }}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="7" class="dim" style="text-align:center;padding:64px">No submissions yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

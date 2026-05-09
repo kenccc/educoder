@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+{% block title %}{{ classroom.name }} — educoder{% endblock %}
+{% block topbar %}
+<div class="topbar">
+  <div class="crumbs">
+    <a href="{% url 'classrooms:list' %}">Classrooms</a>
+    <span class="sep">/</span>
+    <span class="text">{{ classroom.name }}</span>
+  </div>
+  <div class="flex items-center gap-2">
+    <a href="{% url 'assignments:leaderboard' classroom.id %}" class="btn btn-sm">Leaderboard</a>
+    {% if is_owner %}
+      <a href="{% url 'assignments:monitor' classroom.id %}" class="btn btn-sm">Live monitor</a>
+      <a href="{% url 'assignments:new' classroom.id %}" class="btn btn-sm btn-primary">New task</a>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+{% block content %}
+
+<div class="page-head">
+  <h1 class="page-title">{{ classroom.name }}</h1>
+  <div class="page-sub">
+    {% if classroom.description %}{{ classroom.description }} · {% endif %}
+    <span class="mono">{{ classroom.join_code }}</span> · {{ members|length }} student{{ members|length|pluralize }}
+  </div>
+</div>
+
+<div class="grid gap-6" style="grid-template-columns: 2.4fr 1fr;">
+  <div>
+    <div class="section-title">
+      <div class="flex items-center gap-3">
+        <span>Tasks</span>
+        <span class="dim">{{ assignments|length }} total</span>
+      </div>
+      {% if is_owner %}
+        <a href="{% url 'assignments:new' classroom.id %}" class="btn btn-sm btn-primary" style="text-transform:none; letter-spacing:0">+ Add task</a>
+      {% endif %}
+    </div>
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th style="width:24px"></th>
+            <th>Title</th>
+            <th>Lang</th>
+            <th>Level</th>
+            <th class="right">Pts</th>
+            <th class="right">{% if is_owner %}Done{% else %}Status{% endif %}</th>
+            <th class="right">Due</th>
+            <th class="right" style="width:80px"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for a in assignments %}
+            <tr class="clickable {% if not is_owner and a.is_done %}row-done{% endif %}" onclick="window.location='{% url 'assignments:detail' a.pk %}'">
+              <td>
+                {% if is_owner %}
+                  {% if a.completed_count and roster_count and a.completed_count >= roster_count %}
+                    <span class="check-mark" title="All students completed">✓</span>
+                  {% elif a.completed_count %}
+                    <span class="check-mark check-partial" title="{{ a.completed_count }} of {{ roster_count }} done">●</span>
+                  {% else %}
+                    <span class="dim">·</span>
+                  {% endif %}
+                {% else %}
+                  {% if a.is_done %}<span class="check-mark" title="Completed">✓</span>{% else %}<span class="dim">·</span>{% endif %}
+                {% endif %}
+              </td>
+              <td>
+                <span class="task-title{% if not is_owner and a.is_done %} task-done{% endif %}">{{ a.title }}</span>
+                {% if a.strict_mode %}<span class="badge badge-warn" style="margin-left:6px">strict</span>{% endif %}
+              </td>
+              <td class="muted">{{ a.get_language_display }}</td>
+              <td>{% if a.level %}<span class="chip chip-{{ a.level }}">{{ a.level }}</span>{% else %}<span class="dim">—</span>{% endif %}</td>
+              <td class="right num">{{ a.max_points|default:"—" }}</td>
+              <td class="right num">
+                {% if is_owner %}
+                  <span class="dim">{{ a.completed_count|default:0 }}/{{ roster_count }}</span>
+                {% else %}
+                  {% if a.is_done %}<span class="chip chip-pass">done</span>{% else %}<span class="dim">—</span>{% endif %}
+                {% endif %}
+              </td>
+              <td class="right num dim">{{ a.due_at|date:"M j H:i"|default:"—" }}</td>
+              <td class="right" onclick="event.stopPropagation()">
+                {% if is_owner %}
+                  <a href="{% url 'assignments:students' a.id %}" class="btn btn-sm">Students</a>
+                {% else %}
+                  <a href="{% url 'assignments:start' a.id %}" class="btn btn-sm btn-primary">Open</a>
+                {% endif %}
+              </td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="8" class="dim" style="text-align:center;padding:48px">
+              {% if is_owner %}No tasks yet — <a href="{% url 'assignments:new' classroom.id %}" style="color:var(--accent)">create one</a>.{% else %}Nothing assigned yet.{% endif %}
+            </td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <style>
+        .check-mark { color: var(--good); font-weight: 600; font-family: 'JetBrains Mono', monospace; }
+        .check-mark.check-partial { color: var(--warn); }
+        .task-title { color: var(--text); }
+        .task-done { text-decoration: line-through; text-decoration-color: rgba(126,201,143,0.5); text-decoration-thickness: 1px; }
+        tr.row-done td { opacity: 0.78; }
+      </style>
+    </div>
+  </div>
+
+  <div>
+    <div class="section-title">
+      <span>Roster</span>
+      <span class="dim">{{ members|length }}</span>
+    </div>
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Student</th>
+            <th class="right">Joined</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for m in members %}
+            <tr {% if is_owner %}class="clickable" onclick="window.location='{% url 'classrooms:student_detail' classroom.pk m.student.pk %}'"{% endif %}>
+              <td>
+                {% if is_owner %}
+                  <a href="{% url 'classrooms:student_detail' classroom.pk m.student.pk %}" style="color:var(--text)" onclick="event.stopPropagation()">{{ m.student.display_name|default:m.student.username }}</a>
+                {% else %}
+                  {{ m.student.display_name|default:m.student.username }}
+                {% endif %}
+              </td>
+              <td class="right num dim">{{ m.joined_at|date:"M j" }}</td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="2" class="dim" style="text-align:center;padding:32px">No students yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

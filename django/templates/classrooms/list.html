@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}Classrooms — educoder{% endblock %}
+{% block topbar %}
+<div class="topbar">
+  <div class="crumbs">
+    <span class="text">Classrooms</span>
+  </div>
+  {% if request.user.is_teacher %}
+    <button class="btn btn-primary btn-sm" onclick="document.getElementById('createForm').scrollIntoView({behavior:'smooth'})">New classroom</button>
+  {% endif %}
+</div>
+{% endblock %}
+{% block content %}
+
+<div class="page-head">
+  <h1 class="page-title">Classrooms</h1>
+  <div class="page-sub">{% if request.user.is_teacher %}Rooms you teach.{% else %}Rooms you've joined.{% endif %}</div>
+</div>
+
+<div class="table-wrap" style="margin-bottom:32px">
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Teacher</th>
+        <th>Description</th>
+        <th class="right">Code</th>
+        <th class="right">Created</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for c in classrooms %}
+        <tr class="clickable" onclick="window.location='{% url 'classrooms:detail' c.pk %}'">
+          <td><span style="color:var(--text)">{{ c.name }}</span></td>
+          <td class="muted">{{ c.teacher.display_name|default:c.teacher.username }}</td>
+          <td class="dim">{{ c.description|default:"—"|truncatechars:80 }}</td>
+          <td class="right mono dim">{{ c.join_code }}</td>
+          <td class="right num dim">{{ c.created_at|date:"Y-m-d" }}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="5" class="dim" style="text-align:center;padding:48px">No classrooms yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div id="createForm" class="panel" style="max-width:480px">
+  <div class="panel-head">
+    <span class="panel-title">{% if request.user.is_teacher %}Create classroom{% else %}Join classroom{% endif %}</span>
+  </div>
+  <div class="panel-body">
+    {% if request.user.is_teacher %}
+      <form method="post" action="{% url 'classrooms:create' %}">
+        {% csrf_token %}
+        <div class="form-row">
+          <label>Name</label>
+          <input name="name" required class="field" placeholder="Period 4 — CS Fundamentals">
+        </div>
+        <div class="form-row">
+          <label>Description</label>
+          <textarea name="description" rows="2" class="field" placeholder="What this class is about"></textarea>
+        </div>
+        <button class="btn btn-primary">Create</button>
+      </form>
+    {% else %}
+      <form method="post" action="{% url 'classrooms:join' %}">
+        {% csrf_token %}
+        <div class="form-row">
+          <label>Join code</label>
+          <input name="join_code" required maxlength="12" class="field mono" placeholder="ABCD1234" style="text-transform:uppercase; letter-spacing:0.12em">
+        </div>
+        <button class="btn btn-primary">Join</button>
+      </form>
+    {% endif %}
+  </div>
+</div>
+
+{% endblock %}

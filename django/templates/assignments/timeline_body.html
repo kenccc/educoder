@@ -1,0 +1,78 @@
+<div class="page-sub">{{ events|length }} events · {{ snapshots|length }} snapshots · {{ submissions|length }} submissions · {{ cheats|length }} flags</div>
+
+<div class="grid gap-6" style="grid-template-columns: 2fr 3fr;">
+  <div>
+    <div class="section-title"><span>Event log</span><span class="dim">{{ events|length }}</span></div>
+    <div class="table-wrap" style="max-height:75vh">
+      <table class="table">
+        <thead><tr><th>Time</th><th>Type</th><th>Detail</th></tr></thead>
+        <tbody>
+          {% for evt in events %}
+            <tr>
+              <td class="num dim">{{ evt.created_at|date:"H:i:s" }}</td>
+              <td class="muted">{{ evt.type }}</td>
+              <td class="dim">
+                {% if evt.payload.case %}{{ evt.payload.case }}{% endif %}
+                {% if evt.payload.status %}<span class="chip {% if evt.payload.status == 'success' %}chip-pass{% else %}chip-fail{% endif %}">{{ evt.payload.status }}</span>{% endif %}
+                {% if evt.payload.passed != None %} {{ evt.payload.passed }}/{{ evt.payload.total }}{% endif %}
+                {% if evt.payload.from %}{{ evt.payload.from }} → {{ evt.payload.to }}{% endif %}
+                {% if evt.payload.severity %}<span class="badge badge-warn">sev {{ evt.payload.severity }}</span>{% endif %}
+              </td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="3" class="dim" style="text-align:center;padding:24px">No events yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div>
+    <div class="section-title">
+      <span>Code snapshots</span>
+      <span class="dim">{{ snapshots|length }}</span>
+    </div>
+    <div id="snapshotList" class="card" style="padding:0; max-height:75vh; overflow:auto">
+      {% for s in snapshots %}
+        <details {% if forloop.last %}open{% endif %} style="border-bottom:1px solid var(--border)">
+          <summary style="padding:10px 14px;cursor:pointer">
+            <span class="num">{{ s.created_at|date:"H:i:s" }}</span>
+            <span class="dim">·</span>
+            <span class="muted">{{ s.trigger }}</span>
+            <span class="dim">·</span>
+            <span class="num">{{ s.lines }}L</span>
+            {% if s.added_lines %}<span style="color:var(--good)">+{{ s.added_lines }}</span>{% endif %}
+            {% if s.removed_lines %}<span style="color:var(--bad)">-{{ s.removed_lines }}</span>{% endif %}
+          </summary>
+          <pre style="margin:0;padding:12px 14px;background:var(--bg);border-top:1px solid var(--border);font-size:12px;overflow:auto"><code>{{ s.code }}</code></pre>
+        </details>
+      {% empty %}
+        <div class="dim" style="padding:14px;text-align:center">No snapshots yet.</div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+{% if cheats %}
+<div style="margin-top:24px">
+  <div class="section-title"><span>Anti-cheat evidence</span><span class="dim">{{ cheats|length }}</span></div>
+  <div class="table-wrap">
+    <table class="table">
+      <thead><tr><th>Time</th><th>Kind</th><th class="right">Severity</th><th>Detail</th></tr></thead>
+      <tbody>
+        {% for c in cheats %}
+          <tr>
+            <td class="num dim">{{ c.occurred_at|date:"H:i:s" }}</td>
+            <td><span class="badge badge-warn">{{ c.get_kind_display }}</span></td>
+            <td class="right num">{{ c.severity }}</td>
+            <td class="dim">
+              {% if c.payload.lines %}{{ c.payload.lines }} lines{% endif %}
+              {% if c.payload.chars %}{{ c.payload.chars }} chars{% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}

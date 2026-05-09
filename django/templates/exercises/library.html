@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block title %}Task library — educoder{% endblock %}
+{% block topbar %}
+<div class="topbar">
+  <div class="crumbs">
+    <span class="text">Task library</span>
+  </div>
+</div>
+{% endblock %}
+{% block content %}
+
+<div class="page-head">
+  <h1 class="page-title">Task library</h1>
+  <div class="page-sub">Browse all exercises. Practice on your own — solo runs award XP just like classroom tasks.</div>
+</div>
+
+<form method="get" class="flex flex-wrap items-end gap-3" style="margin-bottom:16px">
+  <div class="form-row" style="margin:0; flex:1; min-width:220px">
+    <label>Search</label>
+    <input name="q" value="{{ q }}" class="field" placeholder="Title or slug…">
+  </div>
+  <div class="form-row" style="margin:0">
+    <label>Language</label>
+    <select name="language" class="field" onchange="this.form.submit()" style="width:160px">
+      <option value="">All</option>
+      {% for v, l in languages %}<option value="{{ v }}" {% if v == selected_language %}selected{% endif %}>{{ l }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="form-row" style="margin:0">
+    <label>Level</label>
+    <select name="level" class="field" onchange="this.form.submit()" style="width:160px">
+      <option value="">All</option>
+      {% for v, l in levels %}<option value="{{ v }}" {% if v == selected_level %}selected{% endif %}>{{ l }}</option>{% endfor %}
+    </select>
+  </div>
+  <button class="btn btn-sm">Apply</button>
+  {% if q or selected_language or selected_level %}
+    <a href="{% url 'exercises:library' %}" class="btn btn-sm btn-ghost">Reset</a>
+  {% endif %}
+</form>
+
+<div class="section-title">
+  <span>Exercises</span>
+  <span class="dim">{{ total }}</span>
+</div>
+
+<div class="table-wrap">
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Title</th>
+        <th>Lang</th>
+        <th>Level</th>
+        <th>Prompt</th>
+        <th class="right" style="width:120px"></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for ex in exercises %}
+        <tr>
+          <td>{{ ex.title }}</td>
+          <td class="muted">{{ ex.get_language_display }}</td>
+          <td><span class="chip chip-{{ ex.level }}">{{ ex.level }}</span></td>
+          <td class="dim">{{ ex.prompt_md|truncatechars:80 }}</td>
+          <td class="right">
+            <form method="post" action="{% url 'exercises:practice' ex.id %}" style="display:inline">
+              {% csrf_token %}
+              <button class="btn btn-primary btn-sm">Practice</button>
+            </form>
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="5" class="dim" style="text-align:center;padding:48px">No exercises match.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% if page_obj.paginator.num_pages > 1 %}
+<div class="flex items-center justify-between" style="margin-top:16px">
+  <div class="dim">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</div>
+  <div class="flex items-center gap-1">
+    {% if page_obj.has_previous %}
+      <a class="btn btn-sm" href="?{{ qs_no_page }}{% if qs_no_page %}&{% endif %}page=1">« First</a>
+      <a class="btn btn-sm" href="?{{ qs_no_page }}{% if qs_no_page %}&{% endif %}page={{ page_obj.previous_page_number }}">‹ Prev</a>
+    {% endif %}
+    {% if page_obj.has_next %}
+      <a class="btn btn-sm" href="?{{ qs_no_page }}{% if qs_no_page %}&{% endif %}page={{ page_obj.next_page_number }}">Next ›</a>
+      <a class="btn btn-sm" href="?{{ qs_no_page }}{% if qs_no_page %}&{% endif %}page={{ page_obj.paginator.num_pages }}">Last »</a>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}

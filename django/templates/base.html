@@ -1,0 +1,109 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}educoder{% endblock %}</title>
+  <meta name="csrf-token" content="{{ csrf_token }}">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            /* Quiet Pro palette */
+            'bg':         '#0c0c0d',
+            'bg-alt':     '#141417',
+            'surface':    '#1c1c20',
+            'surface-2':  '#25252b',
+            'text':       '#e8e8ec',
+            'muted':      '#8e8e98',
+            'dim':        '#5b5b65',
+            'border-c':   '#222227',
+            'border-h':   '#2e2e35',
+            'accent':     '#a8b1ff',
+            'good':       '#7ec98f',
+            'warn':       '#e4b876',
+            'bad':        '#e07b7b',
+
+            /* legacy aliases */
+            'warm-parchment': '#e8e8ec',
+            'ash':            '#8e8e98',
+            'stone':          '#5b5b65',
+            'earth':          '#1c1c20',
+            'charcoal':       '#141417',
+            'deep-void':      '#0c0c0d',
+            'mist':           '#222227',
+            'mist-h':         '#2e2e35',
+          },
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+            mono: ['JetBrains Mono', 'ui-monospace', 'monospace'],
+          },
+          fontSize: {
+            '2xs': '10px',
+            'xs':  '11px',
+            'sm':  '12px',
+            'base':'13px',
+          },
+          borderRadius: {
+            'pill': '999px',
+            DEFAULT: '4px',
+          },
+        }
+      }
+    }
+  </script>
+
+  <script src="https://unpkg.com/htmx.org@2.0.4" defer></script>
+  <link rel="stylesheet" href="{% static 'css/app.css' %}">
+  {% block extra_head %}{% endblock %}
+</head>
+<body class="min-h-full bg-bg text-text antialiased">
+
+  {% block shell %}
+    {% if request.user.is_authenticated %}
+      <div class="app-shell">
+        {% block nav %}{% include "partials/_nav.html" %}{% endblock %}
+        <div class="app-main flex flex-col min-w-0">
+          {% block topbar %}{% endblock %}
+          <main class="{% block main_classes %}page{% endblock %}">
+            {% if messages %}
+              <ul class="mb-3 space-y-1">
+                {% for m in messages %}
+                  <li class="border border-border-c bg-bg-alt px-3 py-2 text-sm text-muted rounded">{{ m }}</li>
+                {% endfor %}
+              </ul>
+            {% endif %}
+    {% else %}
+      <main class="{% block main_classes_anon %}{% endblock %}">
+        {% if messages %}
+          <ul class="mb-3 space-y-1 max-w-md mx-auto mt-6">
+            {% for m in messages %}
+              <li class="border border-border-c bg-bg-alt px-3 py-2 text-sm text-muted rounded">{{ m }}</li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+    {% endif %}
+
+    {% block content %}{% endblock %}
+
+    {% if request.user.is_authenticated %}
+          </main>
+        </div>
+      </div>
+    {% else %}
+      </main>
+    {% endif %}
+  {% endblock %}
+
+  <script src="{% static 'js/app.js' %}" defer></script>
+  {% block extra_js %}{% endblock %}
+</body>
+</html>

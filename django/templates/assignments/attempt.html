@@ -1,0 +1,199 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}{{ assignment.title }} · attempt{% endblock %}
+
+{% block extra_head %}
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/codemirror@6.65.7/dist/codemirror.css" onerror="">
+  <style> [x-cloak]{ display:none !important } </style>
+{% endblock %}
+
+{% block shell %}
+<!-- IDE: full viewport, sidebar bypassed -->
+<div style="display:flex; flex-direction:column; height:100vh; overflow:hidden">
+
+  <!-- ===== Anti-cheat veil ===== -->
+  <div id="cheatVeil" class="anticheat-veil hidden">
+    <span class="caps">Strict mode</span>
+    <h2>Return to fullscreen</h2>
+    <p class="muted" style="max-width:32rem">This task runs locked. Re-entering fullscreen and not opening devtools is required to continue.</p>
+    <button id="reenterFsBtn" class="btn btn-primary">re-enter fullscreen ▸</button>
+    <div id="cheatVeilLog" class="dim mono" style="font-size:11px; max-width:32rem"></div>
+  </div>
+
+  <!-- ===== Top bar ===== -->
+  <header class="flex items-center justify-between px-4" style="height:40px; background:var(--bg-alt); border-bottom:1px solid var(--border); flex-shrink:0">
+    <div class="flex items-center gap-3 min-w-0">
+      {% if assignment.classroom_id %}
+        <a href="{% url 'classrooms:detail' assignment.classroom.pk %}" class="btn btn-sm btn-ghost">↩ exit</a>
+      {% else %}
+        <a href="{% url 'exercises:library' %}" class="btn btn-sm btn-ghost">↩ exit</a>
+      {% endif %}
+      <span class="brand-mark"><span class="dot"></span></span>
+      <span class="text truncate" style="font-weight:500">{{ assignment.title }}</span>
+      {% if assignment.level %}<span class="chip chip-{{ assignment.level }}">{{ assignment.level }}</span>{% endif %}
+      <span class="badge">{{ assignment.get_language_display }}</span>
+      {% if assignment.strict_mode %}<span class="badge badge-warn">strict</span>{% endif %}
+    </div>
+    <div class="flex items-center gap-3" style="font-size:12px">
+      {% if remaining_seconds is not None %}
+        <span class="caps">Time</span>
+        <span id="timer" class="timer text" style="font-size:14px" data-seconds="{{ remaining_seconds }}">--:--</span>
+      {% endif %}
+      <span class="caps">Flags</span>
+      <span id="cheatCount" class="num" style="color:var(--warn); font-size:14px">{{ attempt.cheat_event_count }}</span>
+      <button id="runBtn" class="btn btn-primary">▸ run</button>
+    </div>
+  </header>
+
+  <!-- ===== 3-column workspace ===== -->
+  <div style="display:grid; grid-template-columns: minmax(280px, 1fr) minmax(420px, 1.5fr) minmax(300px, 1fr); flex:1; min-height:0">
+
+    <!-- Prompt -->
+    <aside style="border-right:1px solid var(--border); overflow-y:auto; background:var(--bg-alt)">
+      <div class="section-title" style="border:0; border-bottom:1px solid var(--border); border-radius:0; position:sticky; top:0; z-index:1">
+        <span>prompt</span>
+        <span class="dim mono" style="font-size:11px">{{ assignment.language }}</span>
+      </div>
+      <div style="padding:14px">
+        <h1 class="text" style="font-size:16px; font-weight:600; letter-spacing:-0.01em; margin-bottom:8px">{{ assignment.title }}</h1>
+        <div class="prose-warp" style="font-size:12px">
+          {{ assignment.description|linebreaks }}
+        </div>
+
+        {% if visible_cases %}
+          <div class="divider"></div>
+          <span class="caps">Sample tests</span>
+          <div class="mt-2">
+            {% for c in visible_cases %}
+              <div class="mb-3">
+                <div class="caps mb-1">{{ c.name }}</div>
+                {% if c.stdin %}
+                  <div class="caps dim">stdin</div>
+                  <pre class="codeblock">{{ c.stdin }}</pre>
+                {% endif %}
+                <div class="caps dim mt-1">expected</div>
+                <pre class="codeblock">{{ c.expected_stdout }}</pre>
+              </div>
+            {% endfor %}
+          </div>
+        {% endif %}
+      </div>
+    </aside>
+
+    <!-- Editor -->
+    <section style="display:flex; flex-direction:column; overflow:hidden; background:var(--bg)">
+      <div class="section-title" style="border:0; border-bottom:1px solid var(--border); border-radius:0">
+        <span>editor</span>
+        <span class="dim mono" style="font-size:11px">solution.{{ assignment.language }}</span>
+      </div>
+      <div id="editor" style="flex:1; min-height:0"></div>
+    </section>
+
+    <!-- Output -->
+    <aside style="border-left:1px solid var(--border); overflow-y:auto; background:var(--bg-alt)">
+      <div class="section-title" style="border:0; border-bottom:1px solid var(--border); border-radius:0; position:sticky; top:0; z-index:1">
+        <span>tests</span>
+        <span id="resultsSummary" class="dim mono" style="font-size:11px">idle</span>
+      </div>
+      <div style="padding:12px">
+        <div id="results" class="space-y-2"></div>
+        <div id="status" class="mt-3"></div>
+
+        {% if hints %}
+          <div class="divider mt-4"></div>
+          <span class="caps">Hints</span>
+          <div id="hintsList" class="mt-2 space-y-2"
+               data-attempt-id="{{ attempt.id }}"
+               data-reveal-url-template="{% url 'exercises:reveal_hint' attempt.id 0 %}">
+            {% for h in hints %}
+              <div class="card" style="padding:10px;background:var(--bg)">
+                <div class="flex items-center justify-between">
+                  <span><span class="caps">Hint {{ h.level }}</span> {% if h.penalty %}<span class="dim mono" style="font-size:11px">−{{ h.penalty }} XP</span>{% endif %}</span>
+                  {% if h.id in revealed_hint_ids %}
+                    <span class="chip chip-pass">revealed</span>
+                  {% else %}
+                    <button type="button" class="btn btn-sm" data-hint-reveal="{{ h.id }}">Show</button>
+                  {% endif %}
+                </div>
+                <div class="hint-content mt-2 dim" style="font-size:12px;{% if h.id not in revealed_hint_ids %}display:none{% endif %}" data-hint-content="{{ h.id }}">
+                  {{ h.content|linebreaks }}
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        {% endif %}
+
+        {% if is_web %}
+          <div class="caps mt-4 mb-1">live preview</div>
+          <iframe id="webRunner"
+                  style="width:100%; height:240px; border-radius:4px; border:1px solid var(--border); background:#fff"
+                  sandbox="allow-scripts"
+                  referrerpolicy="no-referrer"></iframe>
+          {{ web_cases_json|json_script:"webCasesData" }}
+          <script>window.__webCases = JSON.parse(document.getElementById('webCasesData').textContent || '[]');</script>
+        {% endif %}
+      </div>
+    </aside>
+  </div>
+
+  <form id="submitForm" method="post" action="{% url 'submissions:create' attempt.pk %}"
+        hx-post="{% url 'submissions:create' attempt.pk %}"
+        hx-target="#status" hx-swap="innerHTML" class="hidden">
+    {% csrf_token %}
+    <textarea name="code" id="codeField"></textarea>
+  </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- CodeMirror 6 ESM bundle -->
+<script type="importmap">
+{
+  "imports": {
+    "codemirror":          "https://esm.sh/codemirror@6.0.1",
+    "@codemirror/state":   "https://esm.sh/@codemirror/state@6.4.1",
+    "@codemirror/view":    "https://esm.sh/@codemirror/view@6.34.1",
+    "@codemirror/commands":"https://esm.sh/@codemirror/commands@6.7.1",
+    "@codemirror/lang-python":"https://esm.sh/@codemirror/lang-python@6.1.6",
+    "@codemirror/lang-javascript":"https://esm.sh/@codemirror/lang-javascript@6.2.2",
+    "@codemirror/lang-html":"https://esm.sh/@codemirror/lang-html@6.4.9"
+  }
+}
+</script>
+
+<script type="module">
+import { EditorView, basicSetup } from "codemirror";
+import { EditorState } from "@codemirror/state";
+import { keymap } from "@codemirror/view";
+import { python } from "@codemirror/lang-python";
+import { html as cmHtml } from "@codemirror/lang-html";
+import { javascript } from "@codemirror/lang-javascript";
+
+const lang = "{{ assignment.language }}";
+const langExt = lang === "web" ? cmHtml() : python();
+
+const starter = "{{ assignment.starter_code|escapejs }}";
+
+const view = new EditorView({
+  doc: starter,
+  extensions: [
+    basicSetup,
+    langExt,
+    EditorView.lineWrapping,
+  ],
+  parent: document.getElementById("editor"),
+});
+window.__editor = view;
+
+function getCode() { return view.state.doc.toString(); }
+window.__getCode = getCode;
+</script>
+
+<!-- Anti-cheat + IDE controller -->
+<script src="{% static 'js/attempt.js' %}"
+        data-attempt-id="{{ attempt.pk }}"
+        data-strict="{% if assignment.strict_mode %}1{% else %}0{% endif %}"
+        data-language="{{ assignment.language }}"
+        data-time-limit="{{ remaining_seconds|default:'' }}"
+        defer></script>
+{% endblock %}

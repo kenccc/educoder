@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% block title %}Analytics · {{ assignment.title }}{% endblock %}
+{% block topbar %}
+<div class="topbar">
+  <div class="crumbs">
+    {% if assignment.classroom_id %}
+      <a href="{% url 'classrooms:detail' assignment.classroom.pk %}">{{ assignment.classroom.name }}</a>
+      <span class="sep">/</span>
+    {% endif %}
+    <a href="{% url 'assignments:detail' assignment.pk %}">{{ assignment.title }}</a>
+    <span class="sep">/</span>
+    <span class="text">Analytics</span>
+  </div>
+  <div class="muted">
+    {% if metrics %}updated {{ metrics.computed_at|timesince }} ago{% else %}not computed yet{% endif %}
+  </div>
+</div>
+{% endblock %}
+{% block content %}
+
+<div class="page-head">
+  <h1 class="page-title">Analytics</h1>
+  <div class="page-sub">{{ assignment.title }}</div>
+</div>
+
+{% if not metrics %}
+  <div class="card" style="padding:24px;text-align:center" class="dim">
+    Metrics aren't computed yet — they refresh every 5 minutes.
+  </div>
+{% else %}
+
+<div class="grid gap-4" style="grid-template-columns: repeat(5, minmax(0,1fr)); margin-bottom: 24px">
+  <div class="card"><div class="muted caps text-xs">Started</div><div class="num text-2xl">{{ metrics.students_started }}</div></div>
+  <div class="card"><div class="muted caps text-xs">Completed</div><div class="num text-2xl">{{ metrics.students_completed }}</div></div>
+  <div class="card"><div class="muted caps text-xs">Completion</div><div class="num text-2xl">{{ metrics.completion_rate|floatformat:0 }}%</div></div>
+  <div class="card"><div class="muted caps text-xs">Median solve</div><div class="num text-2xl">{% widthratio metrics.median_solve_seconds 60 1 %}m</div></div>
+  <div class="card"><div class="muted caps text-xs">Avg runs</div><div class="num text-2xl">{{ metrics.avg_runs|floatformat:1 }}</div></div>
+</div>
+
+<div class="grid gap-6" style="grid-template-columns: 1fr 1fr;">
+  <div>
+    <div class="section-title"><span>Common errors</span><span class="dim">{{ metrics.common_errors|length }}</span></div>
+    <div class="table-wrap">
+      <table class="table">
+        <thead><tr><th>Error</th><th class="right">Count</th></tr></thead>
+        <tbody>
+          {% for err in metrics.common_errors %}
+            <tr>
+              <td>{{ err.label }}</td>
+              <td class="right num" style="color:var(--bad)">{{ err.count }}</td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="2" class="dim" style="text-align:center;padding:24px">No errors recorded.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="section-title" style="margin-top:24px"><span>Hint usage</span></div>
+    <div class="card" style="padding:14px">
+      <div class="num text-2xl">{{ metrics.hint_usage_pct|floatformat:0 }}%</div>
+      <div class="muted">of attempts revealed at least one hint</div>
+    </div>
+  </div>
+
+  <div>
+    <div class="section-title"><span>Most failed test</span></div>
+    {% if metrics.most_failed_test %}
+      <div class="card" style="padding:14px">
+        <div class="num text-lg">{{ metrics.most_failed_test.name }}</div>
+        {% if metrics.most_failed_test.stdin %}
+          <pre style="margin-top:10px;padding:10px;background:var(--bg);border:1px solid var(--border);border-radius:4px;font-size:12px;max-height:160px;overflow:auto"><code>stdin: {{ metrics.most_failed_test.stdin|truncatechars:200 }}
+expected: {{ metrics.most_failed_test.expected_stdout|truncatechars:200 }}</code></pre>
+        {% endif %}
+      </div>
+    {% else %}
+      <div class="card dim" style="padding:14px;text-align:center">No data yet.</div>
+    {% endif %}
+
+    {% if concept_rows %}
+    <div class="section-title" style="margin-top:24px"><span>Concept mastery</span><span class="dim">classroom avg</span></div>
+    <div class="table-wrap">
+      <table class="table">
+        <thead><tr><th>Concept</th><th class="right">N</th><th class="right">Avg score</th></tr></thead>
+        <tbody>
+          {% for row in concept_rows %}
+            <tr>
+              <td>{{ row.concept.name }}</td>
+              <td class="right num dim">{{ row.n }}</td>
+              <td class="right num" {% if row.avg < 0.4 %}style="color:var(--bad)"{% elif row.avg < 0.7 %}style="color:var(--warn)"{% else %}style="color:var(--good)"{% endif %}>{{ row.avg|floatformat:2 }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+{% endif %}
+{% endblock %}
