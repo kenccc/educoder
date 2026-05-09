@@ -57,6 +57,37 @@ Free-tier caveats:
 
 ---
 
+## FORPSI Basic Linux VPS
+
+For the FORPSI Basic Linux VPS, use Ubuntu LTS and deploy the full Docker
+Compose stack on the server. This is the recommended small production shape for
+`educoder.cloud`.
+
+Recommended VPS settings:
+
+- OS: Ubuntu LTS
+- DNS: point `educoder.cloud` and `www.educoder.cloud` A/AAAA records to the VPS
+- Plesk: avoid it if optional; Docker Compose + Caddy is simpler here
+- Open firewall ports: `22`, `80`, `443`
+
+First deploy:
+
+```bash
+cp .env.vps.example .env
+# edit .env and replace every secret
+make prod-build
+make prod-up
+make superuser
+make seed
+```
+
+The VPS compose file uses Caddy for automatic HTTPS, Django with two ASGI
+workers, one Celery worker process, Postgres, Redis, the execution runner, and
+the Python sandbox image. That keeps memory use reasonable on 4 GB RAM while
+still running the real sandbox architecture.
+
+---
+
 ## Service map
 
 | Service            | Image                 | Role                                                           |

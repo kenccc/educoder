@@ -1,6 +1,7 @@
 COMPOSE = docker compose
+PROD_COMPOSE = ENV_FILE=$${ENV_FILE:-.env} docker compose -f docker-compose.vps.yml
 
-.PHONY: build up down logs ps shell migrate makemigrations superuser test sandbox-image clean
+.PHONY: build up down logs ps shell migrate makemigrations superuser test sandbox-image prod-build prod-up prod-down prod-logs prod-ps clean
 
 build:
 	$(COMPOSE) build
@@ -65,6 +66,22 @@ test:
 # Build the inner sandbox image used by execution-runner
 sandbox-image:
 	docker build -t educoder/sandbox-python:latest ./sandbox-images/python
+
+prod-build:
+	$(PROD_COMPOSE) build
+	docker build -t educoder/sandbox-python:latest ./sandbox-images/python
+
+prod-up:
+	$(PROD_COMPOSE) up -d
+
+prod-down:
+	$(PROD_COMPOSE) down
+
+prod-logs:
+	$(PROD_COMPOSE) logs -f --tail=200
+
+prod-ps:
+	$(PROD_COMPOSE) ps
 
 clean:
 	$(COMPOSE) down -v

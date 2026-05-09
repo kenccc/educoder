@@ -25,7 +25,11 @@ logging.basicConfig(level=os.environ.get("LOG_LEVEL", "INFO"))
 app = FastAPI(title="educoder execution-runner", version="0.2.0")
 
 EXPECTED_TOKEN = os.environ.get("EXECUTION_RUNNER_TOKEN", "")
-if EXPECTED_TOKEN in {"", "dev-token", "replace-with-shared-secret"} and os.environ.get("RUNNER_ENV") == "production":
+if (
+    EXPECTED_TOKEN in {"", "dev-token", "replace-with-shared-secret"}
+    or len(EXPECTED_TOKEN) < 32
+    or "replace" in EXPECTED_TOKEN.lower()
+) and os.environ.get("RUNNER_ENV") == "production":
     raise RuntimeError("EXECUTION_RUNNER_TOKEN must be set in production")
 
 

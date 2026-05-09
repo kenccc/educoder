@@ -28,13 +28,22 @@ if render_hostname:
     if render_origin not in CSRF_TRUSTED_ORIGINS:
         CSRF_TRUSTED_ORIGINS.append(render_origin)
 
-if SECRET_KEY.startswith("django-insecure-") or SECRET_KEY in {
+if (
+    len(SECRET_KEY) < 32
+    or SECRET_KEY.startswith("django-insecure-")
+    or "replace" in SECRET_KEY.lower()
+    or SECRET_KEY in {
     "replace-me-with-strong-random-value",
     "insecure-dev-secret-change-me",
-}:
+    }
+):
     raise RuntimeError("DJANGO_SECRET_KEY must be a strong production secret")
 
-if EXECUTION_RUNNER_TOKEN in {"dev-token", "replace-with-shared-secret", ""}:
+if (
+    len(EXECUTION_RUNNER_TOKEN) < 32
+    or "replace" in EXECUTION_RUNNER_TOKEN.lower()
+    or EXECUTION_RUNNER_TOKEN in {"dev-token", "replace-with-shared-secret", ""}
+):
     raise RuntimeError("EXECUTION_RUNNER_TOKEN must be set to a strong shared secret")
 
 # ---- Email (SMTP) ----

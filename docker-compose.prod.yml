@@ -1,11 +1,16 @@
-# Production overrides. Use with:
+# Production VPS overrides. Use with:
 #   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 
 services:
   django-web:
+    build:
+      context: ./django
+      dockerfile: Dockerfile
+      args:
+        REQUIREMENTS: prod.txt
     command: >
       uvicorn educoder.asgi:application
-      --host 0.0.0.0 --port 8000 --workers 4
+      --host 0.0.0.0 --port 8000 --workers ${WEB_CONCURRENCY:-2}
       --proxy-headers --forwarded-allow-ips='*'
     environment:
       DJANGO_SETTINGS_MODULE: educoder.settings.prod
@@ -18,33 +23,48 @@ services:
     restart: unless-stopped
 
   celery-worker:
+    build:
+      context: ./django
+      dockerfile: Dockerfile
+      args:
+        REQUIREMENTS: prod.txt
+    command: celery -A educoder worker -l info -Q default,execution,grading --concurrency=${CELERY_CONCURRENCY:-1}
     environment:
       DJANGO_SETTINGS_MODULE: educoder.settings.prod
       RUN_MIGRATIONS: "0"
     restart: unless-stopped
-    deploy:
-      replicas: 2
 
   celery-beat:
+    build:
+      context: ./django
+      dockerfile: Dockerfile
+      args:
+        REQUIREMENTS: prod.txt
     environment:
       DJANGO_SETTINGS_MODULE: educoder.settings.prod
       RUN_MIGRATIONS: "0"
     restart: unless-stopped
 
   execution-runner:
+    environment:
+      RUNNER_ENV: production
     restart: unless-stopped
-    deploy:
-      replicas: 2
 
-  nginx:
-    image: nginx:1.27-alpine
+  caddy:
+    image: caddy:2.8-alpine
     depends_on: [django-web]
     ports:
       - "80:80"
       - "443:443"
     volumes:
-      - ./scripts/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./scripts/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
       - django_static:/var/www/static:ro
       - django_media:/var/www/media:ro
     networks: [backend]
     restart: unless-stopped
+
+volumes:
+  caddy_data:
+  caddy_config:
